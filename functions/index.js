@@ -22,7 +22,7 @@ const brawlerReducer = (brawlerName) => {
 };
 const changeToUrl = ({ name, type }) => {
   return (
-    "https://cdn.starlist.pro/" +
+    "https://cdn.brawlify.com/" +
     type +
     "/" +
     name.replace(/\s+/g, "-") +

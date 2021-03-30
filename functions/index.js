@@ -15,7 +15,7 @@ const capitalize = require("capitalize");
 
 const brawlerReducer = ({ brawlerName, brawlerId }) => {
   const name = capitalize.words(brawlerName.replace(/\. /g, "."));
-  const brawlifyAPI = BrawlifyAPI();
+  const brawlifyAPI = new BrawlifyAPI();
   const translatedName = brawlifyAPI.getTranslatedBrawlerName(brawlerId);
   return {
     name: translatedName,
@@ -130,7 +130,7 @@ class BrawlStarsAPI extends RESTDataSource {
 
       const mapReducer = ({ mapName, mapId }) => {
         const name = mapName;
-        const brawlifyAPI = BrawlifyAPI();
+        const brawlifyAPI = new BrawlifyAPI();
         const translatedName = brawlifyAPI.getTranslatedMapName(mapId);
         return {
           name: translatedName,

@@ -13,10 +13,12 @@ const { RESTDataSource } = require("apollo-datasource-rest");
 const responseCachePlugin = require("apollo-server-plugin-response-cache");
 const capitalize = require("capitalize");
 
-const brawlerReducer = (brawlerName) => {
+const brawlerReducer = ({ brawlerName, brawlerId }) => {
   const name = capitalize.words(brawlerName.replace(/\. /g, "."));
+  const brawlifyAPI = BrawlifyAPI();
+  const translatedName = brawlifyAPI.getTranslatedBrawlerName(brawlerId);
   return {
-    name: name,
+    name: translatedName,
     imageUrl: changeToUrl({ name, type: "brawler-bs" }),
   };
 };
@@ -29,6 +31,35 @@ const changeToUrl = ({ name, type }) => {
     ".png"
   );
 };
+
+class BrawlifyAPI extends RESTDataSource {
+  constructor() {
+    super();
+    this.baseURL = "https://api.brawlapi.com/v1/";
+  }
+
+  cacheOptionsFor() {
+    return { ttl: 120 };
+  }
+
+  async getTranslatedBrawlerName(brawlerId) {
+    const response = await this.get("translations/jp");
+    if (response.strings) {
+      return response.strings[`brawlers_name_${brawlerId}`];
+    } else {
+      throw new Error("returned null response from BrawlifyAPI server");
+    }
+  }
+
+  async getTranslatedMapName(mapId) {
+    const response = await this.get("translations/jp");
+    if (response.strings) {
+      return response.strings[`map_name_${mapId}`];
+    } else {
+      throw new Error("returned null response from BrawlifyAPI server");
+    }
+  }
+}
 
 class BrawlStarsAPI extends RESTDataSource {
   constructor() {
@@ -97,10 +128,12 @@ class BrawlStarsAPI extends RESTDataSource {
         };
       };
 
-      const mapReducer = (mapName) => {
+      const mapReducer = ({ mapName, mapId }) => {
         const name = mapName;
+        const brawlifyAPI = BrawlifyAPI();
+        const translatedName = brawlifyAPI.getTranslatedMapName(mapId);
         return {
-          name: name,
+          name: translatedName,
           imageUrl: changeToUrl({ name, type: "map" }),
         };
       };
@@ -110,7 +143,7 @@ class BrawlStarsAPI extends RESTDataSource {
           return null;
         } else {
           return {
-            map: mapReducer(event.map),
+            map: mapReducer({ mapName: event.map, mapId: event.id }),
             mode: modeReducer(event.mode),
           };
         }
@@ -138,7 +171,10 @@ class BrawlStarsAPI extends RESTDataSource {
 
         return picks.map((pick) => ({
           tag: pick.tag,
-          brawler: brawlerReducer(pick.brawler.name),
+          brawler: brawlerReducer({
+            brawlerName: pick.brawler.name,
+            brawlerId: pick.brawler.id,
+          }),
         }));
       };
 
@@ -295,7 +331,10 @@ class BrawlStarsAPI extends RESTDataSource {
 
   async getBrawlers() {
     const response = await this.getBrawler();
-    return response.map((res) => ({ ...brawlerReducer(res.name), id: res.id }));
+    return response.map((res) => ({
+      ...brawlerReducer({ brawlerName: res.name, brawlerId: res.id }),
+      id: res.id,
+    }));
   }
 
   async getBrawler() {

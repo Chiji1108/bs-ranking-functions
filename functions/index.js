@@ -13,9 +13,8 @@ const { RESTDataSource } = require("apollo-datasource-rest");
 const responseCachePlugin = require("apollo-server-plugin-response-cache");
 const capitalize = require("capitalize");
 
-const brawlerReducer = ({ brawlerName, brawlerId }) => {
+const brawlerReducer = ({ brawlerName, brawlerId, brawlifyAPI }) => {
   const name = capitalize.words(brawlerName.replace(/\. /g, "."));
-  const brawlifyAPI = new BrawlifyAPI();
   const translatedName = brawlifyAPI.getTranslatedBrawlerName(brawlerId);
   return {
     name: translatedName,
@@ -84,7 +83,7 @@ class BrawlStarsAPI extends RESTDataSource {
     return await this.getRanking({ countryCode, brawlerId });
   }
 
-  async getStatistic({ playerTag }) {
+  async getStatistic({ playerTag, brawlifyAPI }) {
     const response = await this.getBattlelog({ playerTag, filtered: true });
 
     const battlelogReducer = (item) => {
@@ -130,7 +129,6 @@ class BrawlStarsAPI extends RESTDataSource {
 
       const mapReducer = ({ mapName, mapId }) => {
         const name = mapName;
-        const brawlifyAPI = new BrawlifyAPI();
         const translatedName = brawlifyAPI.getTranslatedMapName(mapId);
         return {
           name: translatedName,
@@ -174,6 +172,7 @@ class BrawlStarsAPI extends RESTDataSource {
           brawler: brawlerReducer({
             brawlerName: pick.brawler.name,
             brawlerId: pick.brawler.id,
+            brawlifyAPI,
           }),
         }));
       };
@@ -329,10 +328,14 @@ class BrawlStarsAPI extends RESTDataSource {
     };
   }
 
-  async getBrawlers() {
+  async getBrawlers({ brawlifyAPI }) {
     const response = await this.getBrawler();
     return response.map((res) => ({
-      ...brawlerReducer({ brawlerName: res.name, brawlerId: res.id }),
+      ...brawlerReducer({
+        brawlerName: res.name,
+        brawlerId: res.id,
+        brawlifyAPI,
+      }),
       id: res.id,
     }));
   }
@@ -471,16 +474,24 @@ const resolvers = {
     players: async (_, { countryCode, brawlerId }, { dataSources }) =>
       await dataSources.BrawlStarsAPI.getPlayers({ countryCode, brawlerId }),
     statistic: async (_, { playerTag }, { dataSources }) =>
-      await dataSources.BrawlStarsAPI.getStatistic({ playerTag }),
+      await dataSources.BrawlStarsAPI.getStatistic({
+        playerTag,
+        brawlifyAPI: dataSources.BrawlifyAPI,
+      }),
     brawlers: async (_, __, { dataSources }) =>
-      await dataSources.BrawlStarsAPI.getBrawlers(),
+      await dataSources.BrawlStarsAPI.getBrawlers({
+        brawlifyAPI: dataSources.BrawlifyAPI,
+      }),
   },
 };
 
 const server = new ApolloServer({
   typeDefs,
   resolvers,
-  dataSources: () => ({ BrawlStarsAPI: new BrawlStarsAPI() }),
+  dataSources: () => ({
+    BrawlStarsAPI: new BrawlStarsAPI(),
+    BrawlifyAPI: new BrawlifyAPI(),
+  }),
   cacheControl: {
     defaultMaxAge: 120,
   },
